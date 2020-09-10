@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ry4nz/sok/constants"
+
 	"github.com/docker/cli/cli/command/formatter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -14,11 +16,12 @@ import (
 )
 
 const (
-	nodeIDHeader        = "ID"
-	hostnameHeader      = "HOSTNAME"
-	availabilityHeader  = "AVAILABILITY"
-	managerStatusHeader = "MANAGER STATUS"
-	engineVersionHeader = "ENGINE VERSION"
+	nodeIDHeader         = "ID"
+	hostnameHeader       = "HOSTNAME"
+	availabilityHeader   = "AVAILABILITY"
+	managerStatusHeader  = "MANAGER STATUS"
+	engineVersionHeader  = "ENGINE VERSION"
+	swarmNamespaceHeader = "SWARM NAMESPACE"
 )
 
 type nodeContext struct {
@@ -54,8 +57,8 @@ func (c *nodeContext) Availability() string {
 func (c *nodeContext) ManagerStatus() string {
 	var statuses []string
 	for k, _ := range c.n.Labels {
-		if strings.HasPrefix(k, "node-role.kubernetes.io/") {
-			statuses = append(statuses, strings.TrimPrefix(k, "node-role.kubernetes.io/"))
+		if strings.HasPrefix(k, constants.NodeRole) {
+			statuses = append(statuses, strings.TrimPrefix(k, constants.NodeRole))
 		}
 	}
 	return strings.Join(statuses, ",")
@@ -63,6 +66,15 @@ func (c *nodeContext) ManagerStatus() string {
 
 func (c *nodeContext) EngineVersion() string {
 	return c.n.Status.NodeInfo.ContainerRuntimeVersion
+}
+
+func (c *nodeContext) SwarmNamespace() string {
+	for k, v := range c.n.Labels {
+		if k == constants.SwarmNamespace {
+			return v
+		}
+	}
+	return ""
 }
 
 func newListCommand(clientset kubernetes.Clientset) *cobra.Command {
@@ -88,7 +100,7 @@ func runList(clientset kubernetes.Clientset) error {
 	buf := new(bytes.Buffer)
 	nodesCtx := formatter.Context{
 		Output: buf,
-		Format: "table {{.ID}} \t{{.Hostname}}\t{{.Status}}\t{{.Availability}}\t{{.ManagerStatus}}\t{{.EngineVersion}}",
+		Format: "table {{.ID}} \t{{.Hostname}}\t{{.Status}}\t{{.Availability}}\t{{.ManagerStatus}}\t{{.EngineVersion}}\t{{.SwarmNamespace}}",
 	}
 	err = FormatWrite(nodesCtx, nodes.Items)
 	fmt.Println(buf.String())
@@ -108,12 +120,13 @@ func FormatWrite(ctx formatter.Context, nodes []corev1.Node) error {
 	}
 	nodeCtx := nodeContext{}
 	nodeCtx.Header = formatter.SubHeaderContext{
-		"ID":            nodeIDHeader,
-		"Hostname":      hostnameHeader,
-		"Status":        formatter.StatusHeader,
-		"Availability":  availabilityHeader,
-		"ManagerStatus": managerStatusHeader,
-		"EngineVersion": engineVersionHeader,
+		"ID":             nodeIDHeader,
+		"Hostname":       hostnameHeader,
+		"Status":         formatter.StatusHeader,
+		"Availability":   availabilityHeader,
+		"ManagerStatus":  managerStatusHeader,
+		"EngineVersion":  engineVersionHeader,
+		"SwarmNamespace": swarmNamespaceHeader,
 	}
 	return ctx.Write(&nodeCtx, render)
 }

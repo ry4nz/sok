@@ -14,6 +14,11 @@ func CmdSwarmctl(clientset kubernetes.Clientset) *cobra.Command {
 	}
 	cmd.AddCommand(
 		node.NewNodeCommand(clientset),
+		NewInitCommand(),
+		NewListCommand(),
+		NewUseCommand(),
+		NewJoinCommand(clientset),
+		NewLeaveCommand(clientset),
 	)
 	return cmd
 }
